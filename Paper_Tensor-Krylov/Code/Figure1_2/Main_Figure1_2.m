@@ -1,0 +1,159 @@
+% MAIN - file where all calculation are done for making figures 1 and 2 
+% in the paper.
+%
+
+%   Author: Koen Ruymbeek   
+%   Address: Celestijnenlaan 200A, 3001 Leuven
+%   email: koen.ruymbeek@cs.kuleuven.be
+%   Website: https://www.kuleuven.be/wieiswie/nl/person/00114268
+%   Date: 17-Feb-2020; Last revision: 17-Feb-2020
+%
+%   Copyright (c) 2020, Author
+
+clear all
+close all
+
+%% Initialise variables and matrices
+c1 = 1; d11 = 1.1; d22 = 1; d12 = 1; c2 = 1;
+m1 = 100; m2 = 100;
+n = m1*m2;
+h1 = 1/(m1+1);
+h2 = 1/(m2+1);
+
+[D_1m1, D_2m1] = D1_D2_maker(m1,0); % we berekenen (om numerieke redenen) h1*D_1m1, h1*D_2m1 (h1 = h2)
+[D_1m2, D_2m2] = D1_D2_maker(m2,0);
+A1 = 2/h1*kron( D_1m2, D_1m1); f1 = @(c1, c2, d11, d22, d12) d12;
+A2 = kron( eye(m2), D_1m1); f2 = @(c1, c2, d11, d22, d12) c1;
+A3 = kron( eye(m2), D_2m1); f3 = @(c1, c2, d11, d22, d12) d11;
+A4 = kron( D_1m2, eye(m1)); f4 = @(c1, c2, d11, d22, d12) c2;
+A5 = kron( D_2m2, eye(m1)); f5 = @(c1, c2, d11, d22, d12) d22;
+
+A0 = f1(c1, c2, d11, d22, d12)*A1 + f3(c1, c2, d11, d22, d12)*A3 + ...
+    f4(c1, c2, d11, d22, d12)*A4 + f5(c1, c2, d11, d22, d12)*A5;
+A1 = A2;
+f = @(x) x;
+norm_A0 = normest(A0);
+
+%% parameters for the Arnoldi algorithm: 
+n1 = 100;
+n0 = n1;
+w1_v = linspace(-2.5,2.5,n1); % w1 = c1;
+
+max_rank = 150;
+x0 = randn(n,1);
+U = x0/norm(x0);  % U is the inital subspace for the eigenvector
+
+display( '1) with fixed eps_X')
+epsR_v = [10^(-3)/2 10^(-12)/2]; % different values of eps_R in paper 
+epsX_v = [10^(-3) 10^(-12)]; % different values of eps_X in paper
+README = 'ex_conv_diff_E1_E2_<b>_<i>_<j>.mat with b = 1 variable epsX, = 0 fixed epsX, i index in epsR_v and j index in epsX_v';
+for i = 1:length(epsR_v)
+    epsR = epsR_v(i);
+    for j = 1:length(epsX_v)
+        epsX = epsX_v(j);    
+            [V, Lambdav, Xv_m, residu_m, E1_m, E2_m, U_v, U12_m, restart_v, nbr_inner_products]= Arnoldi_extended({A0, A1}, norm_A0, f, w1_v, U, epsR, epsX,max_rank, 600,0,10^(-8));       
+            save( strcat('ex_conv_diff_E1_E2_0_',num2str(i),'_',num2str(j),'.mat'), 'w1_v', 'V', 'Lambdav', 'Xv_m', 'residu_m', 'E1_m', 'E2_m', 'U_v', 'U12_m', 'restart_v', 'nbr_inner_products', 'README')
+    end
+end
+
+display( '2) with variable fixed eps_X')
+% 2) with variable fixed eps_X
+epsX_v = 10^(-3);
+for i = 1:length(epsR_v)
+    epsR = epsR_v(i);
+    for j = 1:length(epsX_v)
+        epsX = epsX_v(j);    
+        [V, Lambdav, Xv_m, residu_m, E1_m, E2_m, U_v, U12_m, restart_v, nbr_inner_products]= Arnoldi_extended({A0, A1}, norm_A0, f, w1_v, U, epsR, epsX,max_rank, 600,1,10^(-8));       
+        save( strcat('ex_conv_diff_E1_E2_1_',num2str(i),'_',num2str(j),'.mat'), 'w1_v', 'V', 'Lambdav', 'Xv_m', 'residu_m', 'E1_m', 'E2_m', 'U_v', 'U12_m', 'restart_v', 'nbr_inner_products', 'README')
+    end
+end
+
+%% Making figures 
+% Figure 1
+
+
+mean_U_v = zeros(4,1);
+herstarts_v = zeros(4,1);
+m = 2;
+epsR_v = [10^(-3)/2 10^(-12)/2];
+epsX_v = [10^(-3) 10^(-12)];
+legendCell = strcat( '$\epsilon_X=',string(num2cell( kron( ones(length(epsR_v),1), eye(length(epsX_v)))*epsX_v')), ', \epsilon_R =',string(num2cell(kron( eye( length( epsR_v)), ones( length(epsX_v),1))*epsR_v')),'$');
+table_prop = zeros(3, length(epsR_v)*length(epsX_v)); % Table 1 in paper
+
+for i = 1:2        
+    for k = 1:2
+        load( strcat('ex_conv_diff_E1_E2_0_',num2str(i),'_',num2str(k),'.mat'))
+        n1 = size(E1_m,2);
+        figure(1)
+        semilogy( vecnorm(residu_m(:,1:600))/sqrt(n1))
+        hold on; 
+
+        E1_m(:,restart_v(2:end)) = NaN;
+        figure(2)            
+        semilogy(norm_A0*mean( E1_m(:,1:600))./mean(residu_m(:,1:600)))
+        hold on; 
+        
+        table_prop(1, (i-1)*length(epsX_v)+k) = length(restart_v(2:end));
+        table_prop(2, (i-1)*length(epsX_v)+k) = mean(U_v);
+        table_prop(3, (i-1)*length(epsX_v)+k) = nbr_inner_products/600;
+    end
+end
+figure(1)
+legend( legendCell)
+xlabel('Iteration $k$')
+ylabel('$ \norm{ \xkb R(\omega_i)}_F/\sqrt{n_1}$')
+hold off
+
+figure(2)
+legend( legendCell)
+ylim( [10^(-14), 10^5])
+xlabel('Iteration $k$')
+ylabel('$ \norm{\VM A_1} \frac{\text{mean}_{i=1,\hdots,n_1} \norm{ \xkb e_1(\omega_i)}}{ \text{mean}_{i=1,\hdots,n_1} \norm{ \xkb r(\omega_i)}}$')
+hold off
+
+%%  Figure 3
+epsR_v = [10^(-3)/2 10^(-12)/2];
+epsX_v = [10^(-3) 10^(-12)];
+
+legendCell = strcat( '$\epsilon_X=',string(num2cell( kron( ones(length(epsR_v ),1), eye(length(epsX_v)))*epsX_v')), ', \epsilon_W =',string(num2cell(kron( eye( length( epsR_v )), ones( length(epsX_v),1))*epsR_v')),'$');
+table = zeros(1, length(epsR_v)*length(epsX_v));
+
+for i = 1:2        
+    load( strcat('ex_conv_diff_E1_E2_0_',num2str(i),'_',num2str(2),'.mat'))
+    n1 = size(E1_m,2);
+    figure(1)
+    semilogy( vecnorm(residu_m)/sqrt(n1))
+    hold on; 
+
+    E1_m(:,restart_v(2:end)) = NaN;
+    figure(2)            
+    semilogy(norm_A0*mean( E1_m)./mean(residu_m))
+    hold on; 
+
+    table( (i-1)*length(epsR_v)+1) = nbr_inner_products/600;
+    load( strcat('ex_conv_diff_E1_E2_1_',num2str(i),'_',num2str(1),'.mat'))
+    n1 = size(E1_m,2);
+    figure(1)
+    semilogy( vecnorm(residu_m(:,1:600))/sqrt(n1))
+    hold on; 
+
+    E1_m(:,restart_v(2:end)) = NaN;
+    figure(2)            
+    semilogy(norm_A0*mean( E1_m(:,1:600))./mean(residu_m(:,1:600)))
+    hold on;     
+    table( (i-1)*length(epsR_v)+2) = nbr_inner_products/600;
+end
+
+figure(1)
+legend( legendCell)
+xlabel('Iteration $k$')
+ylabel('$ \norm{ \xkb R(\omega_i)}_F/\sqrt{n_1}$')
+hold off
+
+figure(2)
+legend( legendCell)
+ylim( [10^(-14), 10^5])
+xlabel('Iteration $k$')
+ylabel('$ \norm{\VM A_1} \frac{\text{mean}_{i=1,\hdots,n_1} \norm{ \xkb e_1(\omega_i)}}{ \text{mean}_{i=1,\hdots,n_1} \norm{ \xkb r(\omega_i)}}$')
+hold off
+
