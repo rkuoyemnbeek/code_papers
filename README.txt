@@ -11,11 +11,3 @@ Numerical Linear Algebra with Applications 26.5 (2019): e2263.
 Ruymbeek, Koen, Karl Meerbergen, and Wim Michiels. 
 "Tensor-Krylov method for computing eigenvalues of parameter-dependent matrices." 
 arXiv preprint arXiv:2006.07473 (2020).
-
-3) Paper_4DCT:
-
-Ruymbeek, Koen, and Wim Vanroose. 
-"Algorithm for the reconstruction of dynamic objects in CT-scanning using optical flow." 
-Journal of Computational and Applied Mathematics 367 (2020): 112459.
-
-
